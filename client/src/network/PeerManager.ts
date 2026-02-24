@@ -2,6 +2,7 @@ export class PeerManager {
   private peers = new Map<string, RTCPeerConnection>();
   private dataChannels = new Map<string, RTCDataChannel>();
   onData: (peerId: string, data: string) => void = () => {};
+  onSignal: (peerId: string, type: "offer" | "answer" | "ice-candidate", payload: unknown) => void = () => {};
 
   async createOffer(peerId: string): Promise<RTCSessionDescriptionInit> {
     const pc = this.createPeerConnection(peerId);
@@ -26,6 +27,13 @@ export class PeerManager {
     if (pc) await pc.setRemoteDescription(answer);
   }
 
+  async handleIceCandidate(peerId: string, candidate: RTCIceCandidateInit): Promise<void> {
+    const pc = this.peers.get(peerId);
+    if (pc) {
+      await pc.addIceCandidate(candidate);
+    }
+  }
+
   send(peerId: string, data: string): void {
     this.dataChannels.get(peerId)?.send(data);
   }
@@ -38,6 +46,11 @@ export class PeerManager {
 
   private createPeerConnection(peerId: string): RTCPeerConnection {
     const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        this.onSignal(peerId, "ice-candidate", event.candidate.toJSON());
+      }
+    };
     this.peers.set(peerId, pc);
     return pc;
   }
@@ -45,5 +58,16 @@ export class PeerManager {
   private setupDataChannel(peerId: string, channel: RTCDataChannel): void {
     this.dataChannels.set(peerId, channel);
     channel.onmessage = (event) => this.onData(peerId, event.data as string);
+  }
+
+  close(): void {
+    for (const channel of this.dataChannels.values()) {
+      channel.close();
+    }
+    for (const pc of this.peers.values()) {
+      pc.close();
+    }
+    this.dataChannels.clear();
+    this.peers.clear();
   }
 }

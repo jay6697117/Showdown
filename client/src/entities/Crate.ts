@@ -1,15 +1,16 @@
-/** Returns the number of power cubes dropped when a crate is destroyed */
 export function crateDropPowerCube(cubeCount: number): number {
   return cubeCount;
 }
 
 export class Crate {
+  id: string;
   hp = 2000;
   x: number;
   y: number;
   cubeCount: number;
 
-  constructor(x: number, y: number, cubeCount = 1) {
+  constructor(id: string, x: number, y: number, cubeCount = 1) {
+    this.id = id;
     this.x = x;
     this.y = y;
     this.cubeCount = cubeCount;

@@ -1,5 +1,6 @@
 export interface CharacterDef {
   id: string;
+  name: string;
   hp: number;
   ammoMax: number;
   attackDamage: number;
@@ -7,37 +8,28 @@ export interface CharacterDef {
   speed: number;
   superName: string;
   superDamage: number;
+  attackPattern: "spread" | "lob" | "melee";
+  superPattern: "dash" | "mega-bomb" | "charge";
 }
 
-export const GUNNER: CharacterDef = {
-  id: "gunner",
-  hp: 3200,
-  ammoMax: 3,
-  attackDamage: 420,
-  attackRange: 600,
-  speed: 200,
-  superName: "弹幕风暴",
-  superDamage: 1200,
+export { GUNNER } from "./Gunner";
+export { BOMBER } from "./Bomber";
+export { BRAWLER } from "./Brawler";
+
+import { GUNNER } from "./Gunner";
+import { BOMBER } from "./Bomber";
+import { BRAWLER } from "./Brawler";
+
+const REGISTRY: Record<string, CharacterDef> = {
+  [GUNNER.id]: GUNNER,
+  [BOMBER.id]: BOMBER,
+  [BRAWLER.id]: BRAWLER,
 };
 
-export const BOMBER: CharacterDef = {
-  id: "bomber",
-  hp: 2800,
-  ammoMax: 3,
-  attackDamage: 780,
-  attackRange: 400,
-  speed: 180,
-  superName: "超级炸弹",
-  superDamage: 1800,
-};
+export function getCharacterById(id: string): CharacterDef {
+  return REGISTRY[id] ?? GUNNER;
+}
 
-export const BRAWLER: CharacterDef = {
-  id: "brawler",
-  hp: 4800,
-  ammoMax: 3,
-  attackDamage: 500,
-  attackRange: 200,
-  speed: 220,
-  superName: "冲锋突袭",
-  superDamage: 800,
-};
+export function getAllCharacters(): CharacterDef[] {
+  return [GUNNER, BOMBER, BRAWLER];
+}

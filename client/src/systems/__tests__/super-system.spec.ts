@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { chargeSuper, isSuperReady } from "../SuperSystem";
+import { chargeSuper, chargeSuperFromHit, isSuperReady } from "../SuperSystem";
 
 describe("SuperSystem", () => {
   it("charges super from dealing damage", () => {
-    expect(chargeSuper(0, 500)).toBe(500);
+    expect(chargeSuper(0, 40)).toBe(40);
   });
 
   it("is ready when charge >= threshold", () => {
-    expect(isSuperReady(3000)).toBe(true);
-    expect(isSuperReady(2999)).toBe(false);
+    expect(isSuperReady(100)).toBe(true);
+    expect(isSuperReady(99)).toBe(false);
+  });
+
+  it("charges by 20 per hit", () => {
+    expect(chargeSuperFromHit(0, 1)).toBe(20);
+    expect(chargeSuperFromHit(80, 2)).toBe(100);
   });
 });

@@ -1,17 +1,20 @@
-export interface SignalMessage {
+import type { HostToClientMessage } from "shared";
+
+export interface SignalRelayMessage {
   type: "offer" | "answer" | "ice-candidate";
   target: string;
-  sdp?: string;
-  candidate?: string;
+  payload: unknown;
 }
 
 export class SignalingHandler {
-  onSend: (target: string, msg: SignalMessage) => void = () => {};
+  onSend: (target: string, msg: HostToClientMessage) => void = () => {};
 
-  handleMessage(from: string, msg: SignalMessage): void {
+  handleMessage(from: string, msg: SignalRelayMessage): void {
     this.onSend(msg.target, {
-      ...msg,
-      target: msg.target,
+      type: "signal",
+      from,
+      signalType: msg.type,
+      payload: msg.payload,
     });
   }
 }

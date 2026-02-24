@@ -6,3 +6,7 @@ export function getWinner(players: Array<{ id: string; hp: number }>): string | 
   const alive = players.filter((p) => p.hp > 0);
   return alive.length === 1 ? alive[0].id : null;
 }
+
+export function computeRank(aliveCountAtDeath: number): number {
+  return Math.max(1, aliveCountAtDeath);
+}
