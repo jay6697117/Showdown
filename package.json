@@ -5,6 +5,8 @@
   "scripts": {
     "dev:client": "npm run dev -w client",
     "dev:server": "npm run dev -w server",
+    "dev:up": "bash ./scripts/dev-up.sh",
+    "dev:down": "bash ./scripts/dev-down.sh",
     "test": "npm run test -ws",
     "typecheck": "npm run typecheck -ws",
     "build": "npm run build -ws",
