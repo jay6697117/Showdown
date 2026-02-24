@@ -3,6 +3,8 @@ import type { HostToClientMessage } from "shared";
 import { canStartCountdown } from "../ui/LobbyState";
 import { getSession, updateSession } from "../state/session";
 import { getSignalingClient, resetSignalingClient } from "../state/runtime";
+import { createPixelButton, createPixelPanel, drawSceneBackdrop, getTextStyle, UI_THEME } from "../ui/theme";
+import type { PixelPanel } from "../ui/theme";
 
 export class Lobby extends Phaser.Scene {
   private titleText?: Phaser.GameObjects.Text;
@@ -11,7 +13,9 @@ export class Lobby extends Phaser.Scene {
   private mapText?: Phaser.GameObjects.Text;
   private statusText?: Phaser.GameObjects.Text;
   private countdownText?: Phaser.GameObjects.Text;
+  private teamBoardText?: Phaser.GameObjects.Text;
   private slotTexts: Phaser.GameObjects.Text[] = [];
+  private slotPanels: PixelPanel[] = [];
   private countdownLeftMs = 0;
   private offlineStart = false;
 
@@ -20,57 +24,123 @@ export class Lobby extends Phaser.Scene {
   }
 
   create() {
-    this.cameras.main.setBackgroundColor("#0b1120");
-    this.titleText = this.add.text(640, 56, "等待大厅", {
-      fontSize: "48px",
-      color: "#f8fafc",
-      fontFamily: "monospace",
-    }).setOrigin(0.5);
+    drawSceneBackdrop(this, "lobby");
 
-    this.roomText = this.add.text(640, 112, "", {
-      fontSize: "22px",
-      color: "#cbd5e1",
-      fontFamily: "monospace",
-    }).setOrigin(0.5);
+    const headerPanel = createPixelPanel(this, {
+      x: 640,
+      y: 108,
+      width: 1140,
+      height: 180,
+      fillColor: 0x111c3c,
+      strokeColor: 0x6fd1ff,
+      glowColor: 0x88ffe8,
+    });
 
-    this.modeText = this.add.text(640, 144, "", {
-      fontSize: "22px",
-      color: "#cbd5e1",
-      fontFamily: "monospace",
-    }).setOrigin(0.5);
+    this.titleText = this.add.text(0, -42, "等待大厅", getTextStyle("title", { fontSize: "52px" })).setOrigin(0.5);
 
-    this.mapText = this.add.text(640, 176, "", {
-      fontSize: "22px",
-      color: "#cbd5e1",
-      fontFamily: "monospace",
-    }).setOrigin(0.5);
+    this.roomText = this.add.text(0, 8, "", getTextStyle("subtitle", { fontSize: "24px" })).setOrigin(0.5);
 
-    this.statusText = this.add.text(640, 684, "", {
-      fontSize: "18px",
-      color: "#fde047",
-      fontFamily: "monospace",
-      align: "center",
-      wordWrap: { width: 1100 },
-    }).setOrigin(0.5);
+    this.modeText = this.add
+      .text(-220, 46, "", getTextStyle("meta", { color: "#b7d7ff", fontSize: "21px" }))
+      .setOrigin(0.5);
 
-    this.countdownText = this.add.text(640, 640, "", {
-      fontSize: "28px",
-      color: "#22d3ee",
-      fontFamily: "monospace",
-    }).setOrigin(0.5);
+    this.mapText = this.add
+      .text(220, 46, "", getTextStyle("meta", { color: "#b7d7ff", fontSize: "21px" }))
+      .setOrigin(0.5);
+
+    headerPanel.container.add([this.titleText, this.roomText, this.modeText, this.mapText]);
+
+    const leftPanel = createPixelPanel(this, {
+      x: 334,
+      y: 420,
+      width: 504,
+      height: 394,
+      fillColor: 0x0f1a35,
+      strokeColor: 0x6ca8ff,
+      glowColor: 0x8effda,
+    });
+    const rightPanel = createPixelPanel(this, {
+      x: 946,
+      y: 420,
+      width: 504,
+      height: 394,
+      fillColor: 0x0f1a35,
+      strokeColor: 0x6ca8ff,
+      glowColor: 0x8effda,
+    });
+
+    leftPanel.container.add(
+      this.add.text(0, -166, "队列 A (1-5)", getTextStyle("subtitle", { color: "#bff7ff", fontSize: "22px" })).setOrigin(0.5)
+    );
+    rightPanel.container.add(
+      this.add.text(0, -166, "队列 B (6-10)", getTextStyle("subtitle", { color: "#bff7ff", fontSize: "22px" })).setOrigin(0.5)
+    );
+
+    this.statusText = this.add
+      .text(
+        640,
+        734,
+        "",
+        getTextStyle("meta", {
+          fontSize: "19px",
+          color: UI_THEME.colors.textWarning,
+          align: "center",
+          wordWrap: { width: 1100 },
+        })
+      )
+      .setOrigin(0.5);
+
+    this.countdownText = this.add
+      .text(640, 688, "", getTextStyle("body", { fontSize: "30px", color: "#87f8ff" }))
+      .setOrigin(0.5);
+
+    const teamPanel = createPixelPanel(this, {
+      x: 640,
+      y: 652,
+      width: 1120,
+      height: 58,
+      fillColor: 0x101f40,
+      strokeColor: 0x699be5,
+      glowColor: 0x91ffd7,
+      alpha: 0.9,
+    });
+    this.teamBoardText = this.add
+      .text(
+        0,
+        0,
+        "",
+        getTextStyle("meta", {
+          fontSize: "17px",
+          color: "#c6dcff",
+          align: "center",
+          wordWrap: { width: 1040 },
+        })
+      )
+      .setOrigin(0.5);
+    teamPanel.container.add(this.teamBoardText);
 
     for (let i = 0; i < 10; i++) {
       const x = i < 5 ? 330 : 930;
-      const y = 240 + (i % 5) * 68;
-      const slot = this.add.text(x, y, "", {
-        fontSize: "20px",
-        color: "#e2e8f0",
-        fontFamily: "monospace",
-      }).setOrigin(0.5);
+      const y = 278 + (i % 5) * 68;
+      const slotPanel = createPixelPanel(this, {
+        x,
+        y,
+        width: 460,
+        height: 56,
+        fillColor: 0x132246,
+        strokeColor: 0x5870a8,
+        glowColor: 0x7ec8ff,
+        alpha: 0.82,
+      });
+      const slot = this.add
+        .text(0, 0, "", getTextStyle("meta", { fontSize: "18px", color: "#dce4ff" }))
+        .setOrigin(0.5);
+      slotPanel.container.add(slot);
       this.slotTexts.push(slot);
+      this.slotPanels.push(slotPanel);
     }
 
-    this.createButton(260, 610, "准备 / 取消", () => {
+    this.createButton(220, 610, "准备 / 取消", () => {
       this.toggleReady();
     });
 
@@ -78,15 +148,15 @@ export class Lobby extends Phaser.Scene {
       this.toggleMap();
     });
 
-    this.createButton(740, 610, "切换单双排", () => {
+    this.createButton(780, 610, "切换单双排", () => {
       this.toggleMode();
     });
 
-    this.createButton(980, 610, "立即开局", () => {
+    this.createButton(1060, 610, "立即开局", () => {
       this.tryStartMatch(true);
     });
 
-    this.createButton(640, 740, "返回主菜单", () => {
+    this.createButton(640, 792, "返回主菜单", () => {
       resetSignalingClient();
       this.scene.start("MainMenu");
     });
@@ -129,17 +199,18 @@ export class Lobby extends Phaser.Scene {
   }
 
   private createButton(x: number, y: number, label: string, onClick: () => void): void {
-    const bg = this.add.rectangle(x, y, 210, 44, 0x1e293b, 0.95).setStrokeStyle(2, 0x94a3b8, 1).setInteractive({ useHandCursor: true });
-    const text = this.add.text(x, y, label, {
-      fontSize: "18px",
-      color: "#ffffff",
-      fontFamily: "monospace",
-    }).setOrigin(0.5);
-    bg.on("pointerover", () => bg.setFillStyle(0x334155, 1));
-    bg.on("pointerout", () => bg.setFillStyle(0x1e293b, 0.95));
-    bg.on("pointerdown", () => onClick());
-    text.setInteractive({ useHandCursor: true });
-    text.on("pointerdown", () => onClick());
+    const isDanger = label.includes("返回");
+    createPixelButton(this, {
+      x,
+      y,
+      label,
+      onClick,
+      width: isDanger ? 320 : 250,
+      height: 52,
+      fillColor: isDanger ? UI_THEME.colors.buttonDanger : 0x1e3270,
+      strokeColor: isDanger ? UI_THEME.colors.buttonDangerStroke : 0x79ddff,
+      glowColor: isDanger ? 0xffa3c6 : 0x72d7ff,
+    });
   }
 
   private onMessage(message: HostToClientMessage): void {
@@ -264,17 +335,102 @@ export class Lobby extends Phaser.Scene {
     this.roomText?.setText(`房间码: ${session.roomCode || "--"}   房主: ${session.hostId || "--"}`);
     this.modeText?.setText(`模式: ${session.mode === "solo" ? "单排" : "双排"}`);
     this.mapText?.setText(`地图: ${session.mapId}`);
+    this.renderTeamBoard(session.mode, session.lobbyPlayers);
 
     for (let i = 0; i < 10; i++) {
       const slot = session.lobbyPlayers[i];
+      const panel = this.slotPanels[i];
       if (!slot) {
-        this.slotTexts[i].setText(`${i + 1}. [空位]`).setColor("#64748b");
+        this.styleSlotPanel(panel, { occupied: false, ready: false, isSelf: false });
+        this.slotTexts[i].setText(`${i + 1}. [空位]`).setColor("#6f82ad");
         continue;
       }
-      const me = slot.id === session.playerId ? "(我)" : "";
+      const isSelf = slot.id === session.playerId;
+      const me = isSelf ? "★我" : "";
       const ready = slot.ready ? "已准备" : "未准备";
       const label = `${i + 1}. ${slot.name}${me} [${slot.characterId}] [${slot.teamId}] ${ready}`;
-      this.slotTexts[i].setText(label).setColor(slot.ready ? "#86efac" : "#fca5a5");
+      this.styleSlotPanel(panel, { occupied: true, ready: slot.ready, isSelf });
+      if (isSelf) {
+        this.slotTexts[i].setText(label).setColor(slot.ready ? "#fff2c4" : "#ffe0ea");
+      } else {
+        this.slotTexts[i].setText(label).setColor(slot.ready ? "#7ef4be" : "#ff9fb1");
+      }
     }
+  }
+
+  private styleSlotPanel(
+    panel: PixelPanel,
+    state: { occupied: boolean; ready: boolean; isSelf: boolean }
+  ): void {
+    if (!state.occupied) {
+      panel.body.setFillStyle(0x101d3a, 0.64);
+      panel.border.setStrokeStyle(2, 0x4d628f, 0.8);
+      panel.gloss.setFillStyle(0x8cbfff, 0.08);
+      panel.container.setScale(1);
+      return;
+    }
+
+    if (state.isSelf) {
+      panel.body.setFillStyle(state.ready ? 0x3b3518 : 0x40222e, 0.95);
+      panel.border.setStrokeStyle(3, state.ready ? 0xf6d47b : 0xffb7c7, 1);
+      panel.gloss.setFillStyle(state.ready ? 0xfff0b4 : 0xffd4df, 0.2);
+      panel.container.setScale(1.02);
+      return;
+    }
+
+    if (state.ready) {
+      panel.body.setFillStyle(0x143d30, 0.92);
+      panel.border.setStrokeStyle(2, 0x5ddaa4, 1);
+      panel.gloss.setFillStyle(0x9cfed1, 0.2);
+      panel.container.setScale(1);
+      return;
+    }
+
+    panel.body.setFillStyle(0x3d2032, 0.9);
+    panel.border.setStrokeStyle(2, 0xff96b4, 1);
+    panel.gloss.setFillStyle(0xffb5ca, 0.18);
+    panel.container.setScale(1);
+  }
+
+  private renderTeamBoard(
+    mode: "solo" | "duo",
+    players: Array<{ id: string; name: string; teamId: string; ready: boolean }>
+  ): void {
+    if (!this.teamBoardText) {
+      return;
+    }
+
+    if (players.length === 0) {
+      this.teamBoardText.setText("等待玩家加入...").setColor("#8ea5cc");
+      return;
+    }
+
+    if (mode === "solo") {
+      const readyCount = players.filter((item) => item.ready).length;
+      this.teamBoardText
+        .setText(`单排模式：每位玩家独立作战  ·  准备进度 ${readyCount}/${players.length}`)
+        .setColor(readyCount === players.length ? "#90f4bf" : "#cfe0ff");
+      return;
+    }
+
+    const grouped = new Map<string, Array<{ name: string; ready: boolean }>>();
+    for (const player of players) {
+      const list = grouped.get(player.teamId) ?? [];
+      list.push({ name: player.name, ready: player.ready });
+      grouped.set(player.teamId, list);
+    }
+
+    const parts = [...grouped.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0], "en"))
+      .map(([teamId, members]) => {
+        const allReady = members.every((member) => member.ready);
+        const names = members.map((member) => `${member.name}${member.ready ? "✓" : "○"}`).join("/");
+        return `${teamId}[${allReady ? "就绪" : "待命"}]: ${names}`;
+      });
+
+    const fullReady = players.every((item) => item.ready);
+    this.teamBoardText
+      .setText(`双排队伍  ·  ${parts.join("   |   ")}`)
+      .setColor(fullReady ? "#90f4bf" : "#cfe0ff");
   }
 }

@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { AMMO_MAX, GAME_TICK_RATE, MAP_SIZE, MAX_PLAYERS } from "shared";
+import { AMMO_MAX, GAME_TICK_RATE, MAP_SIZE, MAX_PLAYERS, ZONE_SHRINK_INTERVAL_MS, ZONE_START_DELAY_MS } from "shared";
 import { decodeInputPacket, decodeSnapshot, encodeInputPacket, encodeSnapshot } from "shared";
 import type { GameSnapshot, InputPacket } from "shared";
 import { getAllCharacters, getCharacterById } from "../characters";
@@ -15,6 +15,7 @@ import { ZoneManager } from "../systems/ZoneManager";
 import { AmmoBar } from "../ui/AmmoBar";
 import { HUD } from "../ui/HUD";
 import { MiniMap } from "../ui/MiniMap";
+import { createPixelPanel, getTextStyle, UI_THEME } from "../ui/theme";
 import { Sfx } from "../audio/Sfx";
 import { HostAuthority } from "../network/HostLogic";
 import { PeerManager } from "../network/PeerManager";
@@ -54,6 +55,11 @@ export class Game extends Phaser.Scene {
   private nextBulletId = 1;
   private nextCubeId = 1;
   private inputSeq = 0;
+  private battleStatusText?: Phaser.GameObjects.Text;
+  private battleMetaText?: Phaser.GameObjects.Text;
+  private zoneProgressTrack?: Phaser.GameObjects.Rectangle;
+  private zoneProgressFill?: Phaser.GameObjects.Rectangle;
+  private dangerVignette?: Phaser.GameObjects.Rectangle;
 
   constructor() {
     super("Game");
@@ -64,7 +70,7 @@ export class Game extends Phaser.Scene {
     this.online = session.roomCode !== "LOCAL";
     this.hostPlayer = !this.online || session.playerId === session.hostId;
 
-    this.cameras.main.setBackgroundColor("#0b1020");
+    this.cameras.main.setBackgroundColor("#0f1933");
     this.graphics = this.add.graphics();
     this.inputManager.bind(this);
     this.hud = new HUD(this);
@@ -88,11 +94,57 @@ export class Game extends Phaser.Scene {
       this.peerManager?.close();
     });
 
-    this.add.text(640, 16, "荒野决斗进行中", {
-      fontSize: "22px",
-      color: "#ffffff",
-      fontFamily: "monospace",
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(10);
+    const titlePanel = createPixelPanel(this, {
+      x: 640,
+      y: 24,
+      width: 360,
+      height: 44,
+      depth: 20,
+      scrollFactor: 0,
+      fillColor: 0x132850,
+      strokeColor: 0x73d7ff,
+      glowColor: 0x9afee7,
+      alpha: 0.92,
+    });
+    const titleText = this.add
+      .text(0, 0, "荒野决斗进行中", getTextStyle("meta", { color: "#f6f3e8", fontSize: "18px" }))
+      .setOrigin(0.5);
+    titlePanel.container.add(titleText);
+
+    const battlePanel = createPixelPanel(this, {
+      x: 640,
+      y: 68,
+      width: 560,
+      height: 52,
+      depth: 20,
+      scrollFactor: 0,
+      fillColor: 0x13254a,
+      strokeColor: 0x6ecfff,
+      glowColor: 0x88ffe8,
+      alpha: 0.9,
+    });
+    this.battleStatusText = this.add
+      .text(0, -9, "排名预测 #10   击杀 0   存活 10/10", getTextStyle("meta", { color: "#f6f3e8", fontSize: "15px" }))
+      .setOrigin(0.5);
+    this.battleMetaText = this.add
+      .text(0, 10, "房间 LOCAL   网络 离线   超级 0%", getTextStyle("meta", { color: "#9dd9ff", fontSize: "14px" }))
+      .setOrigin(0.5);
+
+    this.zoneProgressTrack = this.add
+      .rectangle(0, 24, 430, 8, 0x0b1734, 0.86)
+      .setOrigin(0.5)
+      .setStrokeStyle(1, 0x4f6ea3, 0.9);
+    this.zoneProgressFill = this.add
+      .rectangle(-215, 24, 426, 6, 0x7bc8ff, 1)
+      .setOrigin(0, 0.5)
+      .setScale(0, 1);
+
+    battlePanel.container.add([this.battleStatusText, this.battleMetaText, this.zoneProgressTrack, this.zoneProgressFill]);
+
+    this.dangerVignette = this.add
+      .rectangle(MAP_SIZE / 2, MAP_SIZE / 2, MAP_SIZE, MAP_SIZE, 0xff2f56, 0)
+      .setScrollFactor(0)
+      .setDepth(15);
   }
 
   update(_time: number, delta: number) {
@@ -724,46 +776,78 @@ export class Game extends Phaser.Scene {
     }
 
     this.graphics.clear();
-    this.graphics.fillStyle(0x1f3b22, 1);
+    this.graphics.fillStyle(0x1e3b2a, 1);
     this.graphics.fillRect(0, 0, MAP_SIZE, MAP_SIZE);
 
-    this.graphics.fillStyle(0x31572c, 0.9);
+    this.graphics.lineStyle(1, 0x355c4a, 0.2);
+    for (let i = 0; i <= MAP_SIZE; i += 64) {
+      this.graphics.beginPath();
+      this.graphics.moveTo(i, 0);
+      this.graphics.lineTo(i, MAP_SIZE);
+      this.graphics.strokePath();
+      this.graphics.beginPath();
+      this.graphics.moveTo(0, i);
+      this.graphics.lineTo(MAP_SIZE, i);
+      this.graphics.strokePath();
+    }
+
+    this.graphics.fillStyle(0x325f34, 0.88);
     for (const grass of this.grasses) {
       this.graphics.fillRect(grass.x, grass.y, grass.width, grass.height);
+      this.graphics.fillStyle(0x3e753f, 0.45);
+      this.graphics.fillRect(grass.x + 4, grass.y + 4, grass.width - 8, grass.height - 8);
+      this.graphics.fillStyle(0x325f34, 0.88);
     }
 
-    this.graphics.fillStyle(0x94a3b8, 1);
+    this.graphics.fillStyle(0x8fa4c1, 1);
     for (const wall of this.walls) {
       this.graphics.fillRect(wall.x, wall.y, wall.width, wall.height);
+      this.graphics.lineStyle(2, 0x6f84a1, 1);
+      this.graphics.strokeRect(wall.x, wall.y, wall.width, wall.height);
     }
 
-    this.graphics.fillStyle(0x2563eb, 0.88);
+    this.graphics.fillStyle(0x2d67c8, 0.88);
     for (const water of this.waters) {
       this.graphics.fillRect(water.x, water.y, water.width, water.height);
+      this.graphics.lineStyle(2, 0x70b1ff, 0.55);
+      this.graphics.strokeRect(water.x, water.y, water.width, water.height);
+      this.graphics.fillStyle(0x81c6ff, 0.13);
+      this.graphics.fillRect(water.x + 4, water.y + 4, water.width - 8, 8);
+      this.graphics.fillStyle(0x2d67c8, 0.88);
     }
 
     if (this.zone.isStarted()) {
-      this.graphics.lineStyle(4, 0xef4444, 1);
+      this.graphics.lineStyle(5, 0xff6161, 1);
       this.graphics.strokeCircle(this.zone.centerX, this.zone.centerY, this.zone.radius);
+      this.graphics.lineStyle(1, 0xffb3b3, 0.55);
+      this.graphics.strokeCircle(this.zone.centerX, this.zone.centerY, Math.max(0, this.zone.radius - 8));
     }
 
     for (const crate of this.crates) {
-      this.graphics.fillStyle(0x92400e, 1);
+      this.graphics.fillStyle(0x8f4618, 1);
       this.graphics.fillRect(crate.x - 16, crate.y - 16, 32, 32);
+      this.graphics.lineStyle(2, 0xd08c5f, 0.95);
+      this.graphics.strokeRect(crate.x - 16, crate.y - 16, 32, 32);
       const hpRatio = Phaser.Math.Clamp(crate.hp / 2000, 0, 1);
-      this.graphics.fillStyle(0x22c55e, 1);
+      this.graphics.fillStyle(0x0e1f1c, 0.75);
+      this.graphics.fillRect(crate.x - 16, crate.y - 24, 32, 4);
+      this.graphics.fillStyle(0x35d07b, 1);
       this.graphics.fillRect(crate.x - 16, crate.y - 24, 32 * hpRatio, 4);
     }
 
     for (const cube of this.cubes) {
-      this.graphics.fillStyle(0x84cc16, 1);
-      this.graphics.fillRect(cube.x - 5, cube.y - 5, 10, 10);
+      this.graphics.fillStyle(0x9de23a, 1);
+      this.graphics.fillRect(cube.x - 6, cube.y - 6, 12, 12);
+      this.graphics.fillStyle(0xe2ff8a, 0.9);
+      this.graphics.fillRect(cube.x - 2, cube.y - 2, 4, 4);
     }
 
     for (const bullet of this.bullets) {
-      const color = bullet.kind === "normal" ? 0xf8fafc : bullet.kind === "bomb" ? 0xf59e0b : 0xf97316;
+      const color = bullet.kind === "normal" ? 0xf8fafc : bullet.kind === "bomb" ? 0xffb020 : 0xff7a33;
       this.graphics.fillStyle(color, 1);
       this.graphics.fillCircle(bullet.x, bullet.y, bullet.radius);
+      this.graphics.lineStyle(1, 0xffffff, 0.45);
+      this.graphics.strokeCircle(bullet.x, bullet.y, Math.max(2, bullet.radius - 1));
     }
 
     for (const player of this.players.values()) {
@@ -772,24 +856,28 @@ export class Game extends Phaser.Scene {
       }
       const color =
         player.characterId === "gunner"
-          ? 0x60a5fa
+          ? 0x66b9ff
           : player.characterId === "bomber"
-            ? 0xf97316
-            : 0xfacc15;
+            ? 0xff8a3d
+            : 0xffdc5a;
       this.graphics.fillStyle(color, 1);
       this.graphics.fillCircle(player.x, player.y, 14);
+      this.graphics.lineStyle(2, 0x0b1428, 0.72);
+      this.graphics.strokeCircle(player.x, player.y, 14);
 
       if (player.id === this.localPlayerId) {
-        this.graphics.lineStyle(2, 0xffffff, 1);
-        this.graphics.strokeCircle(player.x, player.y, 19);
+        this.graphics.lineStyle(3, 0xffffff, 1);
+        this.graphics.strokeCircle(player.x, player.y, 20);
+        this.graphics.lineStyle(1, UI_THEME.colors.buttonStroke, 1);
+        this.graphics.strokeCircle(player.x, player.y, 23);
       }
 
       const hpRatio = Phaser.Math.Clamp(player.hp / player.maxHp, 0, 1);
-      this.graphics.fillStyle(0x111827, 0.8);
+      this.graphics.fillStyle(0x101421, 0.85);
       this.graphics.fillRect(player.x - 18, player.y - 24, 36, 5);
-      this.graphics.fillStyle(0x22c55e, 1);
+      this.graphics.fillStyle(0x31d679, 1);
       this.graphics.fillRect(player.x - 18, player.y - 24, 36 * hpRatio, 5);
-      this.graphics.fillStyle(0xfef08a, 1);
+      this.graphics.fillStyle(0xffec8e, 1);
       this.graphics.fillRect(player.x - 18, player.y - 30, Math.min(30, player.cubes * 3), 3);
     }
   }
@@ -815,6 +903,7 @@ export class Game extends Phaser.Scene {
       `HP ${Math.round(local.hp)}/${Math.round(local.maxHp)}  能量 ${local.cubes}  超级 ${Math.round(local.superCharge)}%`
     );
     this.ammoBar.update(local.ammo);
+    this.updateBattlePanel(local, alive);
 
     this.miniMap.draw({
       players: [...this.players.values()].map((player) => ({
@@ -830,6 +919,49 @@ export class Game extends Phaser.Scene {
         radius: this.zone.radius,
       },
     });
+  }
+
+  private updateBattlePanel(local: Player, aliveCount: number): void {
+    if (!this.battleStatusText || !this.battleMetaText || !this.zoneProgressFill) {
+      return;
+    }
+
+    const projectedRank = local.alive ? computeRank(aliveCount) : computeRank(aliveCount + 1);
+    const networkLabel = this.online ? (this.hostPlayer ? "在线 Host" : "在线 Client") : "离线";
+    const roomLabel = getSession().roomCode || "LOCAL";
+
+    let zoneProgress = 0;
+    let zoneColor = 0x7bc8ff;
+    if (!this.zone.isStarted()) {
+      zoneProgress = 1 - this.zone.getMsUntilStart() / ZONE_START_DELAY_MS;
+      zoneColor = 0x7bc8ff;
+    } else if (this.zone.stage < 5) {
+      zoneProgress = 1 - this.zone.getMsUntilNextShrink() / ZONE_SHRINK_INTERVAL_MS;
+      zoneColor = this.zone.stage >= 4 ? 0xffb37a : 0x7cf2b5;
+    } else {
+      zoneProgress = 1;
+      zoneColor = 0xff7f8f;
+    }
+    zoneProgress = Phaser.Math.Clamp(zoneProgress, 0, 1);
+    this.zoneProgressFill.setScale(zoneProgress, 1).setFillStyle(zoneColor, 1);
+
+    this.battleStatusText.setText(`排名预测 #${projectedRank}   击杀 ${local.kills}   存活 ${aliveCount}/${MAX_PLAYERS}`);
+    this.battleMetaText.setText(`房间 ${roomLabel}   网络 ${networkLabel}   超级 ${Math.round(local.superCharge)}%`);
+
+    const lowHp = local.hp / local.maxHp <= 0.35;
+    this.battleStatusText.setColor(lowHp ? "#ffd2d9" : "#f6f3e8");
+    this.battleMetaText.setColor(lowHp ? "#ffc0cc" : "#9dd9ff");
+
+    if (this.dangerVignette) {
+      if (!lowHp) {
+        this.dangerVignette.setAlpha(0);
+      } else {
+        const ratio = local.hp / Math.max(1, local.maxHp);
+        const base = Phaser.Math.Clamp((0.35 - ratio) * 0.8, 0.08, 0.28);
+        const pulse = 0.75 + 0.25 * Math.sin(this.time.now / 120);
+        this.dangerVignette.setAlpha(base * pulse);
+      }
+    }
   }
 
   private bootstrapHostAuthority(): void {
