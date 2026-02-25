@@ -82,54 +82,86 @@ const TEXT_STYLES: Record<TextPreset, Phaser.Types.GameObjects.Text.TextStyle> =
     strokeThickness: 8,
     shadow: {
       offsetX: 0,
-      offsetY: 5,
+      offsetY: 6,
       color: "#000000",
-      blur: 2,
+      blur: 4,
       fill: true,
-      stroke: false,
+      stroke: true,
     },
   },
   subtitle: {
     fontSize: "22px",
     fontFamily: UI_THEME.fonts.body,
     color: UI_THEME.colors.textSecondary,
-    stroke: "#0e1528",
-    strokeThickness: 4,
+    stroke: "#0a1020",
+    strokeThickness: 5,
+    shadow: {
+      offsetX: 0,
+      offsetY: 3,
+      color: "#000000",
+      blur: 2,
+      fill: true,
+      stroke: true,
+    },
   },
   body: {
     fontSize: "30px",
     fontFamily: UI_THEME.fonts.body,
     color: UI_THEME.colors.textPrimary,
     stroke: "#0b1226",
-    strokeThickness: 3,
+    strokeThickness: 4,
+    shadow: {
+      offsetX: 0,
+      offsetY: 2,
+      color: "#000000",
+      blur: 0,
+      fill: true,
+      stroke: false,
+    },
   },
   meta: {
     fontSize: "19px",
     fontFamily: UI_THEME.fonts.mono,
     color: UI_THEME.colors.textMuted,
     stroke: "#0b1226",
-    strokeThickness: 2,
+    strokeThickness: 3,
   },
   button: {
     fontSize: "20px",
-    fontFamily: UI_THEME.fonts.body,
+    fontFamily: UI_THEME.fonts.title,
     color: UI_THEME.colors.textPrimary,
-    stroke: "#0b1226",
-    strokeThickness: 3,
+    stroke: "#060a14",
+    strokeThickness: 4,
+    shadow: {
+      offsetX: 0,
+      offsetY: 4,
+      color: "#000000",
+      blur: 0,
+      fill: true,
+      stroke: true,
+    },
   },
   hudTitle: {
     fontSize: "24px",
     fontFamily: UI_THEME.fonts.body,
     color: UI_THEME.colors.textPrimary,
     stroke: "#0c142a",
-    strokeThickness: 4,
+    strokeThickness: 5,
+    shadow: {
+      offsetX: 0,
+      offsetY: 2,
+      color: "#000000",
+      blur: 2,
+      fill: true,
+      stroke: true,
+    },
   },
   hudBody: {
     fontSize: "19px",
     fontFamily: UI_THEME.fonts.mono,
     color: UI_THEME.colors.textSecondary,
     stroke: "#0c142a",
-    strokeThickness: 3,
+    strokeThickness: 4,
   },
 };
 
@@ -223,22 +255,39 @@ export function createPixelPanel(scene: Phaser.Scene, options: PixelPanelOptions
   const alpha = options.alpha ?? 0.94;
 
   const container = scene.add.container(options.x, options.y);
+  
+  // Soft drop shadow
   const shadow = scene.add
-    .rectangle(6, 7, options.width, options.height, shadowColor, 0.52)
+    .rectangle(8, 12, options.width, options.height, shadowColor, 0.6)
     .setOrigin(0.5);
+  
+  // Base body with solid color
   const body = scene.add
     .rectangle(0, 0, options.width, options.height, fillColor, alpha)
     .setOrigin(0.5);
+  
+  // Subtle tech scanline/grid overlay logic (handled by fill alpha & stroke)
   const inner = scene.add
-    .rectangle(0, 0, options.width - 10, options.height - 10, fillColor, 0.2)
+    .rectangle(0, 0, options.width - 6, options.height - 6, 0x000000, 0.15)
     .setOrigin(0.5)
-    .setStrokeStyle(1, 0xffffff, 0.08);
+    .setStrokeStyle(2, 0xffffff, 0.05);
+  
+  // Top glow/gloss for glass feel
   const gloss = scene.add
-    .rectangle(0, -options.height / 2 + 8, options.width - 16, 10, glowColor, 0.26)
+    .rectangle(0, -options.height / 2 + 4, options.width - 8, Math.min(12, options.height * 0.15), glowColor, 0.35)
     .setOrigin(0.5);
-  const border = scene.add.rectangle(0, 0, options.width, options.height).setOrigin(0.5).setStrokeStyle(3, strokeColor, 1);
+    
+  // Bottom darker shade for depth
+  const bottomShade = scene.add
+    .rectangle(0, options.height / 2 - 4, options.width - 8, Math.min(12, options.height * 0.15), 0x000000, 0.4)
+    .setOrigin(0.5);
 
-  container.add([shadow, body, inner, gloss, border]);
+  // Outer border with multi-layer stroke effect
+  const border = scene.add.rectangle(0, 0, options.width, options.height).setOrigin(0.5).setStrokeStyle(4, strokeColor, 1);
+  const innerBorder = scene.add.rectangle(0, 0, options.width - 8, options.height - 8).setOrigin(0.5).setStrokeStyle(1, strokeColor, 0.5);
+
+  container.add([shadow, body, inner, gloss, bottomShade, border, innerBorder]);
+  
   if (typeof options.depth === "number") {
     container.setDepth(options.depth);
   }
@@ -319,43 +368,87 @@ export function createPixelButton(scene: Phaser.Scene, options: PixelButtonOptio
   const hoverFill = shiftColor(baseFill, 18);
   const pressedFill = shiftColor(baseFill, -20);
 
+  let isDown = false;
+  let isPointerOver = false;
+  let downX = 0;
+  let downY = 0;
+
   panel.container.on("pointerover", () => {
+    isPointerOver = true;
     if (!enabled) {
       return;
     }
-    panel.body.setFillStyle(hoverFill, 1);
-    label.setY(-1);
+    panel.body.setFillStyle(isDown ? pressedFill : hoverFill, 1);
+    panel.border.setStrokeStyle(4, parseInt(UI_THEME.colors.textPrimary.replace("#", "0x")), 1);
+    panel.gloss.setFillStyle(options.glowColor ?? UI_THEME.colors.buttonStroke, 0.5);
+    label.setY(isDown ? 2 : -2);
   });
 
   panel.container.on("pointerout", () => {
+    isPointerOver = false;
     panel.body.setFillStyle(baseFill, enabled ? 0.98 : 0.55);
+    panel.border.setStrokeStyle(4, options.strokeColor ?? UI_THEME.colors.buttonStroke, 1);
+    panel.gloss.setFillStyle(options.glowColor ?? UI_THEME.colors.buttonStroke, 0.35);
     panel.container.setScale(1);
     label.setY(0);
   });
 
-  panel.container.on("pointerdown", () => {
+  panel.container.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
     if (!enabled) {
       return;
     }
+    isDown = true;
+    downX = pointer.x;
+    downY = pointer.y;
     panel.body.setFillStyle(pressedFill, 1);
-    panel.container.setScale(0.985);
-    label.setY(1);
-    void Promise.resolve(options.onClick());
+    panel.border.setStrokeStyle(4, options.strokeColor ?? UI_THEME.colors.buttonStroke, 1);
+    panel.gloss.setFillStyle(0x000000, 0.2); // Darken gloss on press
+    panel.container.setScale(0.96);
+    label.setY(2);
   });
 
   panel.container.on("pointerup", () => {
     if (!enabled) {
       return;
     }
-    panel.body.setFillStyle(hoverFill, 1);
+    const shouldTrigger = isDown;
+    isDown = false;
+    panel.body.setFillStyle(isPointerOver ? hoverFill : baseFill, isPointerOver ? 1 : 0.98);
+    panel.border.setStrokeStyle(4, isPointerOver ? parseInt(UI_THEME.colors.textPrimary.replace("#", "0x")) : (options.strokeColor ?? UI_THEME.colors.buttonStroke), 1);
+    panel.gloss.setFillStyle(options.glowColor ?? UI_THEME.colors.buttonStroke, isPointerOver ? 0.5 : 0.35);
+    panel.container.setScale(1);
+    label.setY(isPointerOver ? -2 : 0);
+    if (shouldTrigger) {
+      void Promise.resolve(options.onClick());
+    }
+  });
+
+  panel.container.on("pointerupoutside", (pointer: Phaser.Input.Pointer) => {
+    if (!enabled) {
+      return;
+    }
+    const distance = Phaser.Math.Distance.Between(downX, downY, pointer.x, pointer.y);
+    const shouldTrigger = isDown && distance < 30;
+    isDown = false;
+    panel.body.setFillStyle(baseFill, enabled ? 0.98 : 0.55);
+    panel.border.setStrokeStyle(4, options.strokeColor ?? UI_THEME.colors.buttonStroke, 1);
+    panel.gloss.setFillStyle(options.glowColor ?? UI_THEME.colors.buttonStroke, 0.35);
     panel.container.setScale(1);
     label.setY(0);
+    if (shouldTrigger) {
+      void Promise.resolve(options.onClick());
+    }
   });
 
   const setEnabled = (nextEnabled: boolean): void => {
     enabled = nextEnabled;
+    if (!nextEnabled) {
+      isDown = false;
+      isPointerOver = false;
+    }
     panel.container.alpha = nextEnabled ? 1 : 0.64;
     panel.body.setFillStyle(baseFill, nextEnabled ? 0.98 : 0.55);
+    label.setY(0);
   };
   setEnabled(enabled);
 

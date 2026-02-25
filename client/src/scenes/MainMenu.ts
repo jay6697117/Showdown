@@ -51,19 +51,19 @@ export class MainMenu extends Phaser.Scene {
 
     const headerPanel = createPixelPanel(this, {
       x: 640,
-      y: 156,
+      y: 140,
       width: 1120,
-      height: 190,
+      height: 160,
       fillColor: 0x111d3d,
       strokeColor: 0x71d5ff,
       glowColor: 0x5db6ff,
     });
-    const title = this.add.text(0, -32, "SHOWDOWN", getTextStyle("title", { fontSize: "64px" })).setOrigin(0.5);
+    const title = this.add.text(0, -24, "SHOWDOWN", getTextStyle("title", { fontSize: "64px" })).setOrigin(0.5);
     const subTitle = this.add
-      .text(0, 24, "荒野决斗竞技场 / 10人乱斗", getTextStyle("subtitle", { fontSize: "24px", color: "#dce6ff" }))
+      .text(0, 32, "荒野决斗竞技场 / 10人乱斗", getTextStyle("subtitle", { fontSize: "24px", color: "#dce6ff" }))
       .setOrigin(0.5);
     const controlsTip = this.add
-      .text(0, 62, "WASD移动  左键攻击  右键或Q释放超级技能", getTextStyle("meta", { color: "#8ed6ff" }))
+      .text(0, 64, "WASD移动  左键攻击  右键或Q释放超级技能", getTextStyle("meta", { color: "#8ed6ff" }))
       .setOrigin(0.5);
     headerPanel.container.add([title, subTitle, controlsTip]);
 
@@ -78,20 +78,20 @@ export class MainMenu extends Phaser.Scene {
 
     const profilePanel = createPixelPanel(this, {
       x: 640,
-      y: 366,
+      y: 340,
       width: 1120,
-      height: 172,
+      height: 160,
       fillColor: 0x101a36,
       strokeColor: 0x5aa7ff,
       glowColor: 0x7bf3d0,
     });
 
     this.nameText = this.add
-      .text(0, -44, "", getTextStyle("body", { fontSize: "30px", color: "#f7f2e9" }))
+      .text(0, -40, "", getTextStyle("body", { fontSize: "30px", color: "#f7f2e9" }))
       .setOrigin(0.5);
 
     this.characterText = this.add
-      .text(0, -2, "", getTextStyle("subtitle", { fontSize: "24px", color: "#d7e5ff" }))
+      .text(0, 0, "", getTextStyle("subtitle", { fontSize: "24px", color: "#d7e5ff" }))
       .setOrigin(0.5);
 
     this.modeText = this.add
@@ -101,34 +101,34 @@ export class MainMenu extends Phaser.Scene {
     profilePanel.container.add([this.nameText, this.characterText, this.modeText]);
 
     this.add
-      .text(640, 426, "点击角色卡片直选角色，条形图展示生存/火力/机动", getTextStyle("meta", { color: "#8ee4ff", fontSize: "20px" }))
+      .text(640, 440, "点击角色卡片直选角色，条形图展示生存/火力/机动", getTextStyle("meta", { color: "#8ee4ff", fontSize: "20px" }))
       .setOrigin(0.5);
 
-    this.createCharacterCards(500);
+    this.createCharacterCards(560);
 
-    this.createButton(460, 618, "切换角色", () => {
+    this.createButton(460, 740, "切换角色", () => {
       this.selectedCharacterIndex = (this.selectedCharacterIndex + 1) % this.characters.length;
       this.syncPreview();
     });
 
-    this.createButton(820, 618, "切换模式 (单排/双排)", () => {
+    this.createButton(820, 740, "切换模式 (单排/双排)", () => {
       this.mode = this.mode === "solo" ? "duo" : "solo";
       this.syncPreview();
     });
 
-    this.createButton(420, 680, "快速匹配", async () => {
+    this.createButton(240, 830, "快速匹配", async () => {
       await this.startOnline("quick-match");
     });
 
-    this.createButton(640, 680, "创建房间", async () => {
+    this.createButton(640, 830, "创建房间", async () => {
       await this.startOnline("create-room");
     });
 
-    this.createButton(860, 680, "加入房间", async () => {
+    this.createButton(1040, 830, "加入房间", async () => {
       await this.startOnline("join-room");
     });
 
-    this.createButton(640, 748, "离线练习", () => {
+    this.createButton(640, 920, "离线练习", () => {
       const currentCharacter = this.characters[this.selectedCharacterIndex];
       updateLocalPlayer({ name: this.name, characterId: currentCharacter.id as "gunner" | "bomber" | "brawler" });
       updateSession({
@@ -152,9 +152,9 @@ export class MainMenu extends Phaser.Scene {
 
     const statusPanel = createPixelPanel(this, {
       x: 640,
-      y: 822,
+      y: 1060,
       width: 1120,
-      height: 98,
+      height: 100,
       fillColor: 0x0f1a34,
       strokeColor: 0x6c9fff,
       glowColor: 0x6ee7ff,
@@ -283,9 +283,30 @@ export class MainMenu extends Phaser.Scene {
           useHandCursor: true,
         });
 
-      panel.container.on("pointerdown", () => {
-        this.selectedCharacterIndex = index;
-        this.syncPreview();
+      let isDown = false;
+      let downX = 0;
+      let downY = 0;
+
+      panel.container.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+        isDown = true;
+        downX = pointer.x;
+        downY = pointer.y;
+      });
+      panel.container.on("pointerup", () => {
+        if (isDown) {
+          isDown = false;
+          this.selectedCharacterIndex = index;
+          this.syncPreview();
+        }
+      });
+      panel.container.on("pointerupoutside", (pointer: Phaser.Input.Pointer) => {
+        if (!isDown) return;
+        const distance = Phaser.Math.Distance.Between(downX, downY, pointer.x, pointer.y);
+        isDown = false;
+        if (distance < 30) {
+          this.selectedCharacterIndex = index;
+          this.syncPreview();
+        }
       });
       panel.container.on("pointerover", () => {
         if (this.selectedCharacterIndex !== index) {
@@ -328,9 +349,9 @@ export class MainMenu extends Phaser.Scene {
     this.characterCards.forEach((card, index) => {
       const selected = index === this.selectedCharacterIndex;
       card.body.setFillStyle(card.fillColor, selected ? 1 : 0.84);
-      card.border.setStrokeStyle(selected ? 4 : 2, selected ? 0xffefad : card.strokeColor, 1);
-      card.gloss.setFillStyle(selected ? 0xfff0c1 : UI_THEME.colors.buttonStroke, selected ? 0.28 : 0.18);
-      card.panel.setScale(selected ? 1.04 : 1);
+      card.border.setStrokeStyle(selected ? 5 : 4, selected ? 0xffefad : card.strokeColor, 1);
+      card.gloss.setFillStyle(selected ? 0xfff0c1 : UI_THEME.colors.buttonStroke, selected ? 0.35 : 0.2);
+      card.panel.setScale(selected ? 1.05 : 1);
       card.title.setColor(selected ? "#fff9e3" : "#dce8ff");
       card.detail.setColor(selected ? "#ffedc0" : "#c7d7f6");
       card.superText.setColor(selected ? "#ffe7b5" : "#b4cbf1");

@@ -27,6 +27,7 @@ const QUALITY_STORAGE_KEY = "showdown_quality_pref";
 const ADAPTIVE_DOWNGRADE_THRESHOLD_MS = 33;
 const ADAPTIVE_SUSTAINED_FRAMES = 30;
 const ADAPTIVE_COOLDOWN_MS = 10000;
+const OFFLINE_PRACTICE_HP_MULTIPLIER = 20;
 
 function safeGetLocalStorage(key: string): string | null {
   try {
@@ -696,13 +697,14 @@ export class Game extends Phaser.Scene {
 
     if (!this.players.has(this.localPlayerId)) {
       const localCharacter = getCharacterById(session.localPlayer.characterId);
+      const localBaseHp = this.online ? localCharacter.hp : localCharacter.hp * OFFLINE_PRACTICE_HP_MULTIPLIER;
       const local = new Player({
         id: this.localPlayerId,
         name: session.localPlayer.name,
         x: centerX + radius,
         y: centerY,
         characterId: localCharacter.id as "gunner" | "bomber" | "brawler",
-        baseHp: localCharacter.hp,
+        baseHp: localBaseHp,
         speed: localCharacter.speed,
         teamId: mode === "duo" ? "T1" : "T1",
         isBot: false,

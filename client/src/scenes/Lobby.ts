@@ -33,58 +33,58 @@ export class Lobby extends Phaser.Scene {
 
     const headerPanel = createPixelPanel(this, {
       x: 640,
-      y: 108,
+      y: 140,
       width: 1140,
-      height: 180,
+      height: 160,
       fillColor: 0x111c3c,
       strokeColor: 0x6fd1ff,
       glowColor: 0x88ffe8,
     });
 
-    this.titleText = this.add.text(0, -42, "等待大厅", getTextStyle("title", { fontSize: "52px" })).setOrigin(0.5);
+    this.titleText = this.add.text(0, -36, "等待大厅", getTextStyle("title", { fontSize: "52px" })).setOrigin(0.5);
 
-    this.roomText = this.add.text(0, 8, "", getTextStyle("subtitle", { fontSize: "24px" })).setOrigin(0.5);
+    this.roomText = this.add.text(0, 16, "", getTextStyle("subtitle", { fontSize: "24px" })).setOrigin(0.5);
 
     this.modeText = this.add
-      .text(-220, 46, "", getTextStyle("meta", { color: "#b7d7ff", fontSize: "21px" }))
+      .text(-220, 52, "", getTextStyle("meta", { color: "#b7d7ff", fontSize: "21px" }))
       .setOrigin(0.5);
 
     this.mapText = this.add
-      .text(220, 46, "", getTextStyle("meta", { color: "#b7d7ff", fontSize: "21px" }))
+      .text(220, 52, "", getTextStyle("meta", { color: "#b7d7ff", fontSize: "21px" }))
       .setOrigin(0.5);
 
     headerPanel.container.add([this.titleText, this.roomText, this.modeText, this.mapText]);
 
     const leftPanel = createPixelPanel(this, {
-      x: 334,
-      y: 420,
-      width: 504,
-      height: 394,
+      x: 340,
+      y: 480,
+      width: 520,
+      height: 440,
       fillColor: 0x0f1a35,
       strokeColor: 0x6ca8ff,
       glowColor: 0x8effda,
     });
     const rightPanel = createPixelPanel(this, {
-      x: 946,
-      y: 420,
-      width: 504,
-      height: 394,
+      x: 940,
+      y: 480,
+      width: 520,
+      height: 440,
       fillColor: 0x0f1a35,
       strokeColor: 0x6ca8ff,
       glowColor: 0x8effda,
     });
 
     leftPanel.container.add(
-      this.add.text(0, -166, "队列 A (1-5)", getTextStyle("subtitle", { color: "#bff7ff", fontSize: "22px" })).setOrigin(0.5)
+      this.add.text(0, -180, "队列 A (1-5)", getTextStyle("subtitle", { color: "#bff7ff", fontSize: "24px" })).setOrigin(0.5)
     );
     rightPanel.container.add(
-      this.add.text(0, -166, "队列 B (6-10)", getTextStyle("subtitle", { color: "#bff7ff", fontSize: "22px" })).setOrigin(0.5)
+      this.add.text(0, -180, "队列 B (6-10)", getTextStyle("subtitle", { color: "#bff7ff", fontSize: "24px" })).setOrigin(0.5)
     );
 
     this.statusText = this.add
       .text(
         640,
-        734,
+        920,
         "",
         getTextStyle("meta", {
           fontSize: "19px",
@@ -96,14 +96,14 @@ export class Lobby extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.countdownText = this.add
-      .text(640, 688, "", getTextStyle("body", { fontSize: "30px", color: "#87f8ff" }))
+      .text(640, 860, "", getTextStyle("body", { fontSize: "32px", color: "#87f8ff" }))
       .setOrigin(0.5);
 
     const teamPanel = createPixelPanel(this, {
       x: 640,
-      y: 652,
-      width: 1120,
-      height: 58,
+      y: 780,
+      width: 1140,
+      height: 64,
       fillColor: 0x101f40,
       strokeColor: 0x699be5,
       glowColor: 0x91ffd7,
@@ -125,13 +125,13 @@ export class Lobby extends Phaser.Scene {
     teamPanel.container.add(this.teamBoardText);
 
     for (let i = 0; i < 10; i++) {
-      const x = i < 5 ? 330 : 930;
-      const y = 278 + (i % 5) * 68;
+      const x = i < 5 ? 340 : 940;
+      const y = 330 + (i % 5) * 72;
       const slotPanel = createPixelPanel(this, {
         x,
         y,
-        width: 460,
-        height: 56,
+        width: 480,
+        height: 58,
         fillColor: 0x132246,
         strokeColor: 0x5870a8,
         glowColor: 0x7ec8ff,
@@ -145,23 +145,23 @@ export class Lobby extends Phaser.Scene {
       this.slotPanels.push(slotPanel);
     }
 
-    this.createButton(220, 610, "准备 / 取消", () => {
+    this.createButton(220, 1020, "准备 / 取消", () => {
       this.toggleReady();
     });
 
-    this.createButton(500, 610, "切换地图", () => {
+    this.createButton(500, 1020, "切换地图", () => {
       this.toggleMap();
     });
 
-    this.createButton(780, 610, "切换单双排", () => {
+    this.createButton(780, 1020, "切换单双排", () => {
       this.toggleMode();
     });
 
-    this.createButton(1060, 610, "立即开局", () => {
+    this.createButton(1060, 1020, "立即开局", () => {
       this.tryStartMatch(true);
     });
 
-    this.createButton(640, 792, "返回主菜单", () => {
+    this.createButton(640, 1120, "返回主菜单", () => {
       this.hasTransitioned = true;
       resetSignalingClient();
       this.scene.start("MainMenu");
@@ -441,31 +441,31 @@ export class Lobby extends Phaser.Scene {
   ): void {
     if (!state.occupied) {
       panel.body.setFillStyle(0x101d3a, 0.64);
-      panel.border.setStrokeStyle(2, 0x4d628f, 0.8);
-      panel.gloss.setFillStyle(0x8cbfff, 0.08);
+      panel.border.setStrokeStyle(4, 0x4d628f, 0.8);
+      panel.gloss.setFillStyle(0x8cbfff, 0.1);
       panel.container.setScale(1);
       return;
     }
 
     if (state.isSelf) {
       panel.body.setFillStyle(state.ready ? 0x3b3518 : 0x40222e, 0.95);
-      panel.border.setStrokeStyle(3, state.ready ? 0xf6d47b : 0xffb7c7, 1);
-      panel.gloss.setFillStyle(state.ready ? 0xfff0b4 : 0xffd4df, 0.2);
+      panel.border.setStrokeStyle(4, state.ready ? 0xf6d47b : 0xffb7c7, 1);
+      panel.gloss.setFillStyle(state.ready ? 0xfff0b4 : 0xffd4df, 0.3);
       panel.container.setScale(1.02);
       return;
     }
 
     if (state.ready) {
       panel.body.setFillStyle(0x143d30, 0.92);
-      panel.border.setStrokeStyle(2, 0x5ddaa4, 1);
-      panel.gloss.setFillStyle(0x9cfed1, 0.2);
+      panel.border.setStrokeStyle(4, 0x5ddaa4, 1);
+      panel.gloss.setFillStyle(0x9cfed1, 0.25);
       panel.container.setScale(1);
       return;
     }
 
     panel.body.setFillStyle(0x3d2032, 0.9);
-    panel.border.setStrokeStyle(2, 0xff96b4, 1);
-    panel.gloss.setFillStyle(0xffb5ca, 0.18);
+    panel.border.setStrokeStyle(4, 0xff96b4, 1);
+    panel.gloss.setFillStyle(0xffb5ca, 0.2);
     panel.container.setScale(1);
   }
 
