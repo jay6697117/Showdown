@@ -15,6 +15,9 @@ export class MainMenu extends Phaser.Scene {
   private characterText?: Phaser.GameObjects.Text;
   private modeText?: Phaser.GameObjects.Text;
   private statusText?: Phaser.GameObjects.Text;
+  private keyboardHandler?: (event: KeyboardEvent) => void;
+  private signalingHandler?: (message: HostToClientMessage) => void;
+  private startOnlineInFlight = false;
   private characterCards: Array<{
     panel: Phaser.GameObjects.Container;
     body: Phaser.GameObjects.Rectangle;
@@ -35,6 +38,7 @@ export class MainMenu extends Phaser.Scene {
 
   create() {
     this.hasTransitioned = false;
+    this.startOnlineInFlight = false;
     const session = getSession();
     this.name = session.localPlayer.name;
     this.mode = session.mode;
@@ -170,7 +174,7 @@ export class MainMenu extends Phaser.Scene {
       .setOrigin(0.5);
     statusPanel.container.add(this.statusText);
 
-    this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
+    this.keyboardHandler = (event: KeyboardEvent) => {
       if (event.key === "Backspace") {
         this.name = this.name.slice(0, -1);
         this.syncPreview();
@@ -180,6 +184,20 @@ export class MainMenu extends Phaser.Scene {
         this.name += event.key;
         this.syncPreview();
       }
+    };
+    this.input.keyboard?.on("keydown", this.keyboardHandler);
+
+    this.events.once("shutdown", () => {
+      if (this.keyboardHandler) {
+        this.input.keyboard?.off("keydown", this.keyboardHandler);
+        this.keyboardHandler = undefined;
+      }
+      const signaling = getSignalingClient();
+      if (signaling.onMessage === this.signalingHandler) {
+        signaling.onMessage = () => {};
+      }
+      this.signalingHandler = undefined;
+      this.startOnlineInFlight = false;
     });
 
     this.syncPreview();
@@ -337,6 +355,12 @@ export class MainMenu extends Phaser.Scene {
   }
 
   private async startOnline(type: "quick-match" | "create-room" | "join-room"): Promise<void> {
+    if (this.startOnlineInFlight || this.hasTransitioned) {
+      return;
+    }
+    this.startOnlineInFlight = true;
+
+    const isMenuStillActive = () => this.scene.isActive(this.scene.key) && !this.hasTransitioned;
     const character = this.characters[this.selectedCharacterIndex];
     const session = updateLocalPlayer({
       name: this.name,
@@ -344,57 +368,69 @@ export class MainMenu extends Phaser.Scene {
     });
 
     const signaling = getSignalingClient();
-    signaling.onMessage = (message: HostToClientMessage) => {
+    this.signalingHandler = (message: HostToClientMessage) => {
       this.handleSignalMessage(message);
     };
+    signaling.onMessage = this.signalingHandler;
 
     try {
       if (!signaling.isConnected()) {
         this.statusText?.setText(`连接服务器中: ${session.wsUrl}`);
         await signaling.connect(session.wsUrl);
       }
-    } catch {
-      this.statusText?.setText("连接服务器失败，请确认 server 已启动，或使用离线练习。");
-      return;
-    }
-
-    if (type === "join-room") {
-      const code = window.prompt("请输入6位房间码")?.trim();
-      if (!code) {
-        this.statusText?.setText("已取消加入房间。");
+      if (!isMenuStillActive()) {
         return;
       }
-      signaling.send({
-        type,
-        code,
-        name: this.name,
-        characterId: character.id,
-      });
-      this.statusText?.setText(`加入房间 ${code} ...`);
-      return;
-    }
 
-    if (type === "create-room") {
+      if (type === "join-room") {
+        const code = window.prompt("请输入6位房间码")?.trim();
+        if (!code) {
+          this.statusText?.setText("已取消加入房间。");
+          return;
+        }
+        if (!isMenuStillActive()) {
+          return;
+        }
+        signaling.send({
+          type,
+          code,
+          name: this.name,
+          characterId: character.id,
+        });
+        this.statusText?.setText(`加入房间 ${code} ...`);
+        return;
+      }
+
+      if (type === "create-room") {
+        signaling.send({
+          type,
+          name: this.name,
+          characterId: character.id,
+          mode: this.mode,
+        });
+        this.statusText?.setText("创建房间中...");
+        return;
+      }
+
       signaling.send({
         type,
         name: this.name,
         characterId: character.id,
         mode: this.mode,
       });
-      this.statusText?.setText("创建房间中...");
-      return;
+      this.statusText?.setText("快速匹配中...");
+    } catch {
+      this.statusText?.setText("连接服务器失败，请确认 server 已启动，或使用离线练习。");
+    } finally {
+      this.startOnlineInFlight = false;
     }
-
-    signaling.send({
-      type,
-      name: this.name,
-      characterId: character.id,
-      mode: this.mode,
-    });
-    this.statusText?.setText("快速匹配中...");
   }
 
   private handleSignalMessage(message: HostToClientMessage): void {
+    if (this.hasTransitioned || !this.scene.isActive(this.scene.key)) {
+      return;
+    }
+
     if (message.type === "hello") {
       updateSession({ playerId: message.playerId });
       return;

@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import type { HostToClientMessage } from "shared";
+import type { ClientToHostMessage, HostToClientMessage } from "shared";
 import { canStartCountdown } from "../ui/LobbyState";
 import { getSession, updateSession } from "../state/session";
 import { getSignalingClient, resetSignalingClient } from "../state/runtime";
@@ -18,12 +18,17 @@ export class Lobby extends Phaser.Scene {
   private slotPanels: PixelPanel[] = [];
   private countdownLeftMs = 0;
   private offlineStart = false;
+  private hasTransitioned = false;
+  private startMatchRequested = false;
+  private signalingHandler?: (message: HostToClientMessage) => void;
 
   constructor() {
     super("Lobby");
   }
 
   create() {
+    this.hasTransitioned = false;
+    this.startMatchRequested = false;
     drawSceneBackdrop(this, "lobby");
 
     const headerPanel = createPixelPanel(this, {
@@ -157,14 +162,26 @@ export class Lobby extends Phaser.Scene {
     });
 
     this.createButton(640, 792, "返回主菜单", () => {
+      this.hasTransitioned = true;
       resetSignalingClient();
       this.scene.start("MainMenu");
     });
 
     const signaling = getSignalingClient();
-    signaling.onMessage = (message: HostToClientMessage) => {
+    this.signalingHandler = (message: HostToClientMessage) => {
       this.onMessage(message);
     };
+    signaling.onMessage = this.signalingHandler;
+
+    this.events.once("shutdown", () => {
+      this.hasTransitioned = true;
+      this.startMatchRequested = false;
+      const sig = getSignalingClient();
+      if (sig.onMessage === this.signalingHandler) {
+        sig.onMessage = () => {};
+      }
+      this.signalingHandler = undefined;
+    });
 
     const session = getSession();
     this.offlineStart = session.roomCode === "LOCAL";
@@ -181,6 +198,7 @@ export class Lobby extends Phaser.Scene {
 
     if (!canStart || session.lobbyPlayers.length < 2) {
       this.countdownLeftMs = 0;
+      this.startMatchRequested = false;
       this.countdownText?.setText("");
       return;
     }
@@ -214,7 +232,15 @@ export class Lobby extends Phaser.Scene {
   }
 
   private onMessage(message: HostToClientMessage): void {
+    if (this.hasTransitioned || !this.scene.isActive(this.scene.key)) {
+      return;
+    }
+
     if (message.type === "room-state") {
+      const allReady = canStartCountdown(message.payload.players);
+      if (!allReady) {
+        this.startMatchRequested = false;
+      }
       updateSession({
         roomCode: message.payload.code,
         hostId: message.payload.hostId,
@@ -235,7 +261,10 @@ export class Lobby extends Phaser.Scene {
           mode: message.mode,
         },
       });
-      this.scene.start("Game");
+      if (!this.hasTransitioned) {
+        this.hasTransitioned = true;
+        this.scene.start("Game");
+      }
       return;
     }
 
@@ -248,6 +277,31 @@ export class Lobby extends Phaser.Scene {
       updateSession({ playerId: message.playerId });
       this.renderSession();
     }
+  }
+
+  private async sendOnlineMessage(message: ClientToHostMessage, statusText?: string): Promise<boolean> {
+    const signaling = getSignalingClient();
+    const session = getSession();
+
+    if (!signaling.isConnected()) {
+      this.statusText?.setText(`连接服务器中: ${session.wsUrl}`);
+      try {
+        await signaling.connect(session.wsUrl);
+      } catch {
+        this.statusText?.setText("连接已断开，请返回主菜单后重试。");
+        return false;
+      }
+    }
+
+    if (this.hasTransitioned || !this.scene.isActive(this.scene.key)) {
+      return false;
+    }
+
+    signaling.send(message);
+    if (statusText) {
+      this.statusText?.setText(statusText);
+    }
+    return true;
   }
 
   private toggleReady(): void {
@@ -263,11 +317,14 @@ export class Lobby extends Phaser.Scene {
 
     const me = session.lobbyPlayers.find((item) => item.id === session.playerId);
     const nextReady = me ? !me.ready : true;
-    getSignalingClient().send({
-      type: "ready",
-      playerId: session.playerId,
-      ready: nextReady,
-    });
+    void this.sendOnlineMessage(
+      {
+        type: "ready",
+        playerId: session.playerId,
+        ready: nextReady,
+      },
+      `准备状态已切换: ${nextReady ? "已准备" : "未准备"}`
+    );
   }
 
   private toggleMap(): void {
@@ -284,7 +341,10 @@ export class Lobby extends Phaser.Scene {
       return;
     }
 
-    getSignalingClient().send({ type: "select-map", roomCode: session.roomCode, mapId: nextMap });
+    void this.sendOnlineMessage(
+      { type: "select-map", roomCode: session.roomCode, mapId: nextMap },
+      `请求切换地图至 ${nextMap} ...`
+    );
   }
 
   private toggleMode(): void {
@@ -301,10 +361,17 @@ export class Lobby extends Phaser.Scene {
       return;
     }
 
-    getSignalingClient().send({ type: "set-mode", roomCode: session.roomCode, mode: nextMode });
+    void this.sendOnlineMessage(
+      { type: "set-mode", roomCode: session.roomCode, mode: nextMode },
+      `请求切换模式至 ${nextMode === "solo" ? "单排" : "双排"} ...`
+    );
   }
 
   private tryStartMatch(forceStart: boolean): void {
+    if (this.hasTransitioned) {
+      return;
+    }
+
     const session = getSession();
     if (session.hostId !== session.playerId && !this.offlineStart) {
       return;
@@ -323,11 +390,21 @@ export class Lobby extends Phaser.Scene {
           mode: session.mode,
         },
       });
+      this.hasTransitioned = true;
       this.scene.start("Game");
       return;
     }
 
-    getSignalingClient().send({ type: "start-match", roomCode: session.roomCode });
+    if (this.startMatchRequested) {
+      return;
+    }
+
+    this.startMatchRequested = true;
+    void this.sendOnlineMessage({ type: "start-match", roomCode: session.roomCode }, "发送开局请求...").then((sent) => {
+      if (!sent) {
+        this.startMatchRequested = false;
+      }
+    });
   }
 
   private renderSession(): void {

@@ -44,16 +44,333 @@
 
     canvas {
       border: 2px solid var(--frame);
+      border-radius: 16px;
       box-shadow:
         0 0 0 4px rgba(53, 81, 141, 0.4),
         0 28px 80px rgba(0, 0, 0, 0.55);
-      image-rendering: pixelated;
       max-width: min(96vw, 1280px);
       max-height: min(96vh, 1280px);
+      image-rendering: auto;
+    }
+
+    /* Loading Overlay Styles */
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(13, 29, 59, 0.95) 0%, rgba(9, 13, 30, 1) 100%);
+      z-index: 9999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.6s;
+      font-family: "Rajdhani", sans-serif;
+      color: #83ffd6;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      box-sizing: border-box;
+    }
+
+    #loading-overlay::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: 
+        linear-gradient(rgba(103, 173, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(103, 173, 255, 0.04) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+    }
+
+    #loading-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .loading-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+      width: 100%;
+      max-width: 420px;
+      margin: 24px;
+      padding: 48px 32px;
+      background: linear-gradient(180deg, rgba(13, 29, 59, 0.7) 0%, rgba(9, 13, 30, 0.9) 100%);
+      border: 1px solid rgba(103, 173, 255, 0.15);
+      border-radius: 4px;
+      box-shadow: 
+        0 30px 60px rgba(0, 0, 0, 0.6), 
+        inset 0 1px 0 rgba(131, 255, 214, 0.2),
+        inset 0 -1px 0 rgba(103, 173, 255, 0.2);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      position: relative;
+      box-sizing: border-box;
+    }
+
+    /* Tactical corner brackets */
+    .loading-content::after {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border: 1px solid transparent;
+      background: 
+        linear-gradient(to right, #83ffd6, #83ffd6) top left / 12px 2px no-repeat,
+        linear-gradient(to bottom, #83ffd6, #83ffd6) top left / 2px 12px no-repeat,
+        linear-gradient(to left, #83ffd6, #83ffd6) top right / 12px 2px no-repeat,
+        linear-gradient(to bottom, #83ffd6, #83ffd6) top right / 2px 12px no-repeat,
+        linear-gradient(to right, #83ffd6, #83ffd6) bottom left / 12px 2px no-repeat,
+        linear-gradient(to top, #83ffd6, #83ffd6) bottom left / 2px 12px no-repeat,
+        linear-gradient(to left, #83ffd6, #83ffd6) bottom right / 12px 2px no-repeat,
+        linear-gradient(to top, #83ffd6, #83ffd6) bottom right / 2px 12px no-repeat;
+      pointer-events: none;
+      border-radius: 4px;
+    }
+
+    .loading-content::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(131, 255, 214, 0.8), transparent);
+      animation: scanline 3s ease-in-out infinite;
+      opacity: 0.5;
+    }
+
+    @keyframes scanline {
+      0% { top: 0%; }
+      50% { top: 100%; }
+      100% { top: 0%; }
+    }
+
+    .loading-logo {
+      font-family: "Press Start 2P", monospace;
+      font-size: clamp(20px, 5vw, 28px);
+      color: #fff;
+      text-shadow: 
+        0 0 10px rgba(131, 255, 214, 0.6), 
+        0 0 20px rgba(103, 173, 255, 0.4),
+        2px 2px 0px rgba(9, 13, 30, 0.8);
+      letter-spacing: 4px;
+      margin-bottom: 8px;
+      text-align: center;
+      position: relative;
+    }
+
+    .loading-spinner {
+      position: relative;
+      width: 72px;
+      height: 72px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .spinner-ring {
+      position: absolute;
+      inset: 0;
+      border: 2px solid rgba(103, 173, 255, 0.1);
+      border-top-color: #83ffd6;
+      border-right-color: #67adff;
+      border-radius: 50%;
+      animation: spin 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+      box-shadow: 0 0 15px rgba(131, 255, 214, 0.2);
+    }
+
+    .spinner-ring::before {
+      content: "";
+      position: absolute;
+      inset: 6px;
+      border: 2px solid rgba(131, 255, 214, 0.1);
+      border-bottom-color: #83ffd6;
+      border-left-color: #67adff;
+      border-radius: 50%;
+      animation: spin 1.8s linear infinite reverse;
+    }
+
+    .spinner-core {
+      width: 12px;
+      height: 12px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 
+        0 0 10px #fff,
+        0 0 20px #83ffd6, 
+        0 0 40px #67adff;
+      animation: pulse 1.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.8); opacity: 0.7; }
+      100% { transform: scale(1.2); opacity: 1; }
+    }
+
+    #loading-status {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.9);
+      text-shadow: 0 0 8px rgba(131, 255, 214, 0.4);
+      animation: pulse-opacity 2s ease-in-out infinite;
+      text-align: center;
+      margin-top: 8px;
+    }
+
+    @keyframes pulse-opacity {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .loading-bar-container {
+      width: 100%;
+      height: 4px;
+      background: rgba(9, 13, 30, 0.8);
+      border: 1px solid rgba(103, 173, 255, 0.2);
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+    }
+
+    #loading-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #67adff, #83ffd6, #fff);
+      background-size: 200% 100%;
+      box-shadow: 0 0 12px rgba(131, 255, 214, 0.8);
+      transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+      animation: gradient-shift 2s linear infinite;
+    }
+
+    @keyframes gradient-shift {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+
+    #loading-error {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      width: 100%;
+      padding-top: 12px;
+      border-top: 1px dashed rgba(255, 77, 77, 0.3);
+    }
+
+    .error-text {
+      color: #ff4d4d;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 3px;
+      text-shadow: 0 0 12px rgba(255, 77, 77, 0.6);
+      text-align: center;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .error-text::before, .error-text::after {
+      content: "!";
+      display: inline-block;
+      color: #ff4d4d;
+      animation: blink 1s step-end infinite;
+    }
+
+    .retry-button {
+      background: rgba(255, 77, 77, 0.05);
+      border: 1px solid rgba(255, 77, 77, 0.5);
+      color: #ff4d4d;
+      padding: 12px 32px;
+      font-family: "Rajdhani", sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 3px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      border-radius: 2px;
+      text-transform: uppercase;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .retry-button::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 77, 77, 0.2), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .retry-button:hover {
+      background: rgba(255, 77, 77, 0.15);
+      border-color: #ff4d4d;
+      box-shadow: 
+        0 0 20px rgba(255, 77, 77, 0.4),
+        inset 0 0 10px rgba(255, 77, 77, 0.2);
+      text-shadow: 0 0 8px rgba(255, 77, 77, 0.8);
+    }
+
+    .retry-button:hover::before {
+      left: 100%;
+    }
+
+    .retry-button:active {
+      transform: scale(0.96);
     }
   </style>
+
 </head>
 <body>
-  <script type="module" src="/src/main.ts"></script>
+  <div id="loading-overlay">
+    <div class="loading-content">
+      <div class="loading-logo">SHOWDOWN</div>
+      <div class="loading-spinner" id="loading-spinner">
+        <div class="spinner-ring"></div>
+        <div class="spinner-core"></div>
+      </div>
+      <div id="loading-status">INITIALIZING SYSTEM...</div>
+      <div class="loading-bar-container" id="loading-bar-container">
+        <div id="loading-bar"></div>
+      </div>
+      <div id="loading-error" style="display: none;">
+        <div class="error-text">SYSTEM BOOT FAILURE</div>
+        <button class="retry-button" onclick="window.location.reload()">REBOOT SYSTEM</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    window.__showdownEntryLoadFailed = function () {
+      var spinnerEl = document.getElementById("loading-spinner");
+      var statusEl = document.getElementById("loading-status");
+      var barContainerEl = document.getElementById("loading-bar-container");
+      var errorEl = document.getElementById("loading-error");
+
+      if (spinnerEl) spinnerEl.style.display = "none";
+      if (barContainerEl) barContainerEl.style.display = "none";
+      if (statusEl) statusEl.textContent = "ENTRY CHUNK LOAD FAILED";
+      if (errorEl) errorEl.style.display = "flex";
+    };
+  </script>
+  <script
+    type="module"
+    src="/src/main.ts"
+    onerror="window.__showdownEntryLoadFailed && window.__showdownEntryLoadFailed()"
+  ></script>
 </body>
 </html>

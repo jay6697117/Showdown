@@ -60,8 +60,13 @@ export class Result extends Phaser.Scene {
     });
 
     this.createButton(500, 556, "再来一局", () => {
+      const session = getSession();
       updateSession({ result: null, matchStart: null });
-      this.scene.start("Game");
+      if (session.roomCode === "LOCAL") {
+        this.scene.start("Game");
+      } else {
+        this.scene.start("Lobby");
+      }
     });
 
     this.createButton(780, 556, "返回主菜单", () => {
